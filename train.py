@@ -143,7 +143,7 @@ class Session:
 
 
 def main(ckp_name='latest.pth'):
-    sess = Session(dt_split='trainaug')
+    sess = Session(dt_split='train')
     sess.load_checkpoints(ckp_name)
 
     dt_iter = iter(sess.dataloader)
