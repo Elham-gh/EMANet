@@ -1,5 +1,7 @@
 # EMANet
 
+
+Colab Netebook: https://colab.research.google.com/drive/128tzNls4heELtkktVbLCpp40LK_a521l#scrollTo=NVoyyp-lksTl
 ## News
 
 - The bug in loading the pretrained model is now fixed. I have updated the .pth. To use it, download it again.
