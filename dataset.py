@@ -89,7 +89,7 @@ class BaseDataset(data.Dataset):
     def __init__(self, data_root, split):
         self.data_root = data_root
 
-        file_list = osp.join('datalist', split + '.txt')
+        file_list = osp.join(self.data_root, split, split + '.txt')
         file_list = tuple(open(file_list, 'r'))
         file_list = [id_.rstrip() for id_ in file_list]
         self.files = file_list
@@ -106,13 +106,12 @@ class BaseDataset(data.Dataset):
 
 
 class TrainDataset(BaseDataset):
-    def __init__(self, data_root=settings.DATA_ROOT, split='trainaug'):
+    def __init__(self, data_root=settings.DATA_ROOT, split='train'):
         super(TrainDataset, self).__init__(data_root, split)
 
     def _get_item(self, image_id):
-        image_path = osp.join(self.data_root, 'JPEGImages', image_id + '.jpg')
-        label_path = osp.join(self.data_root, 'SegmentationClassAug', 
-                              image_id + '.png')
+        image_path = osp.join(self.data_root, 'train' , 'images', image_id + '.png')
+        label_path = osp.join(self.data_root, 'train' , 'GT', image_id + '.png')
 
         image, label = fetch(image_path, label_path)
         image, label = scale(image, label)
@@ -128,9 +127,8 @@ class ValDataset(BaseDataset):
         super(ValDataset, self).__init__(data_root, split)
 
     def _get_item(self, image_id):
-        image_path = osp.join(self.data_root, 'JPEGImages', image_id + '.jpg')
-        label_path = osp.join(self.data_root, 'SegmentationClassAug', 
-                              image_id + '.png')
+        image_path = osp.join(self.data_root, 'val' , 'images', image_id + '.jpg')
+        label_path = osp.join(self.data_root, 'val' , 'GT', image_id + '.png')
 
         image, label = fetch(image_path, label_path)
         image, label = pad_inf(image, label)
