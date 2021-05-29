@@ -145,7 +145,7 @@ class Session:
 def main(ckp_name='latest.pth'):
     sess = Session(dt_split='train')
     sess.load_checkpoints(ckp_name)
-
+    
     dt_iter = iter(sess.dataloader)
     sess.net.train()
 
@@ -172,9 +172,10 @@ def main(ckp_name='latest.pth'):
             sess.save_checkpoints('step_%d.pth' % sess.step)
         if sess.step % (settings.ITER_SAVE // 10) == 0:
             sess.save_checkpoints('latest.pth')
+            sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/latest.pth')
         sess.step += 1
 
-    sess.save_checkpoints('final.pth')
+    sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/final.pth')
 
 
 if __name__ == '__main__':
