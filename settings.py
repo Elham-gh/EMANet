@@ -4,23 +4,23 @@ from torch import Tensor
 
 
 # Data settings
-DATA_ROOT = '/content/EMANet/datasets/nyu'
+DATA_ROOT = '/content/EMANet/datasets/nyu/'
 MEAN = Tensor(np.array([0.485, 0.456, 0.406]))
 STD = Tensor(np.array([0.229, 0.224, 0.225]))
 SCALES = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0)
 CROP_SIZE = 513
-IGNORE_LABEL = 0
+IGNORE_LABEL = 0 ###*
 
 # Model definition
-N_CLASSES = 41
-N_LAYERS = 101
+N_CLASSES = 40 ###*
+N_LAYERS = 50
 STRIDE = 8
 BN_MOM = 3e-4
 EM_MOM = 0.9
 STAGE_NUM = 3
 
 # Training settings
-BATCH_SIZE = 4
+BATCH_SIZE = 6 ###*
 ITER_MAX = 30000
 ITER_SAVE = 2000
 
@@ -31,7 +31,7 @@ POLY_POWER = 0.9
 WEIGHT_DECAY = 1e-4
 
 DEVICE = 0
-DEVICES = [0]
+DEVICES = [0] ###* 
 
 LOG_DIR = './logdir' 
 MODEL_DIR = './models'
