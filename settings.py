@@ -1,46 +1,79 @@
-import logging
+import os
+import os.path as osp
+
 import numpy as np
-from torch import Tensor
+
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+from torch.nn import DataParallel
+from torch.utils.data import DataLoader
+
+from dataset import ValDataset 
+from metric import fast_hist, cal_scores
+from network import EMANet 
+import settings
+
+logger = settings.logger
 
 
-# Data settings
-DATA_ROOT = '/content/EMANet/datasets/nyu/'
-MEAN = Tensor(np.array([0.485, 0.456, 0.406]))
-STD = Tensor(np.array([0.229, 0.224, 0.225]))
-SCALES = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0)
-CROP_SIZE = 513
-IGNORE_LABEL = 0 ###*
+class Session:
+    def __init__(self, dt_split):
+        torch.cuda.set_device(settings.DEVICE)
 
-# Model definition
-N_CLASSES = 40 ###*
-N_LAYERS = 50
-STRIDE = 8
-BN_MOM = 3e-4
-EM_MOM = 0.9
-STAGE_NUM = 3
+        self.log_dir = settings.LOG_DIR
+        self.model_dir = settings.MODEL_DIR
 
-# Training settings
-BATCH_SIZE = 6
-ITER_MAX = 30000
-ITER_SAVE = 2000
+        self.net = EMANet(settings.N_CLASSES, settings.N_LAYERS).cuda()
+        self.net = DataParallel(self.net, device_ids=[settings.DEVICE])
+        dataset = ValDataset(split=dt_split)
+        self.dataloader = DataLoader(dataset, batch_size=1, shuffle=False, 
+                                     num_workers=2, drop_last=False)
+        self.hist = 0
 
-LR_DECAY = 10
-LR = 9e-3
-LR_MOM = 0.9
-POLY_POWER = 0.9
-WEIGHT_DECAY = 1e-4
+    def load_checkpoints(self, name):
+        ckp_path = osp.join(self.model_dir, name)
+        try:
+            obj = torch.load(ckp_path, 
+                             map_location=lambda storage, loc: storage.cuda())
+            logger.info('Load checkpoint %s.' % ckp_path)
+        except FileNotFoundError:
+            logger.info('No checkpoint %s!' % ckp_path)
+            return
 
-DEVICE = 0
-DEVICES = [0] 
+        self.net.module.load_state_dict(obj['net'])
 
-LOG_DIR = './logdir' 
-MODEL_DIR = '/content/drive/MyDrive/SuperBPD/EMA_ckpt' #'./models'
-NUM_WORKERS = 16
+    def inf_batch(self, image, label):
+        image = image.cuda()
+        label = label.cuda()
+        with torch.no_grad():
+            logit = self.net(image)
 
-logger = logging.getLogger('train')
-logger.setLevel(logging.INFO)
-ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-ch.setFormatter(formatter)
-logger.addHandler(ch)
+        pred = logit.max(dim=1)[1]
+        self.hist += fast_hist(label, pred)
+
+
+def main(ckp_name='latest.pth'):
+    sess = Session(dt_split='val')
+    sess.load_checkpoints(ckp_name)
+    dt_iter = sess.dataloader
+    sess.net.eval()
+
+    for i, [image, label] in enumerate(dt_iter):
+        sess.inf_batch(image, label)
+        if i % 10 == 0:
+            logger.info('num-%d' % i)
+            scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+            for k, v in scores.items():
+                logger.info('%s-%f' % (k, v))
+
+    scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+    for k, v in scores.items():
+        logger.info('%s-%f' % (k, v))
+    logger.info('')
+    for k, v in cls_iu.items():
+        logger.info('%s-%f' % (k, v))
+
+
+if __name__ == '__main__':
+    main()
