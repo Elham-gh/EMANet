@@ -20,7 +20,7 @@ EM_MOM = 0.9
 STAGE_NUM = 3
 
 # Training settings
-BATCH_SIZE = 6 ###*
+BATCH_SIZE = 6
 ITER_MAX = 30000
 ITER_SAVE = 2000
 
@@ -31,10 +31,10 @@ POLY_POWER = 0.9
 WEIGHT_DECAY = 1e-4
 
 DEVICE = 0
-DEVICES = [0] ###* 
+DEVICES = [0] 
 
 LOG_DIR = './logdir' 
-MODEL_DIR = './models'
+MODEL_DIR = '/content/drive/MyDrive/SuperBPD/EMA_ckpt' #'./models'
 NUM_WORKERS = 16
 
 logger = logging.getLogger('train')
