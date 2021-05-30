@@ -13,6 +13,7 @@ from dataset import ValDataset
 from metric import fast_hist, cal_scores
 from network import EMANet 
 import settings
+from PIL import Image
 
 logger = settings.logger
 
@@ -43,7 +44,7 @@ class Session:
 
         self.net.module.load_state_dict(obj['net'])
 
-    def inf_batch(self, image, label):
+    def inf_batch(self, image, label, name):
         image = image.cuda()
         label = label.cuda()
         with torch.no_grad():
@@ -51,16 +52,29 @@ class Session:
 
         pred = logit.max(dim=1)[1]
         self.hist += fast_hist(label, pred)
+        # output = pred.cpu().numpy()
+        # print(output.max())
+        # print(output.min())
+        # output = Image.fromarray(output)
+        # output.save('/content/EMANet/outputs/' + name + '.jpg')
+        out = np.array(pred.cpu(), dtype=np.uint8)
+        maximum = out.max()
+        extended = (out / maximum * 255).astype('uint8')
+        extended = np.squeeze(extended, axis=0)
+        # seg_pred = np.asarray(np.argmax(out, axis=0), dtype=np.uint8)
+        output_im = Image.fromarray(extended)
+        output_im.save('/content/EMANet/outputs/'+ name[0] +'.png')
+        print(np.array(output_im).min())
+        hi
 
-
-def main(ckp_name='final.pth'):
+def main(ckp_name='latest.pth'):
     sess = Session(dt_split='val')
     sess.load_checkpoints(ckp_name)
     dt_iter = sess.dataloader
     sess.net.eval()
 
-    for i, [image, label] in enumerate(dt_iter):
-        sess.inf_batch(image, label)
+    for i, [image, label, name] in enumerate(dt_iter):
+        sess.inf_batch(image, label, name)
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
