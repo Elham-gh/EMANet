@@ -133,7 +133,7 @@ class ValDataset(BaseDataset):
 
         image, label = fetch(image_path, label_path)
         image, label = pad_inf(image, label)
-        return image[0], label[0, 0].long()
+        return image[0], label[0, 0].long(), image_id
 
 
 
