@@ -167,12 +167,14 @@ def main(ckp_name='latest.pth'):
         loss = sess.train_batch(image, label)
         out = {'loss': loss}
         sess.write(out)
+        
 
         if sess.step % settings.ITER_SAVE == 0:
             sess.save_checkpoints('step_%d.pth' % sess.step)
+            sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/EMA_NYU_%d.pth' % sess.step)
         if sess.step % (settings.ITER_SAVE // 10) == 0:
             sess.save_checkpoints('latest.pth')
-            sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/latest.pth')
+            # sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/latest.pth')
         sess.step += 1
 
     sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/final.pth')
