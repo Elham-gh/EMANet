@@ -2,6 +2,7 @@ import os
 import os.path as osp
 
 import numpy as np
+import pickle
 
 import torch
 import torch.nn as nn
@@ -51,50 +52,51 @@ class Session:
             logit = self.net(image)
 
         pred = logit.max(dim=1)[1]
-        self.hist += fast_hist(label, pred)
+
         clusters = np.unique(clustered)
+        truncated = pred[0, 3:-3, :].cpu().numpy()
         for cluster in clusters:
             mask = clustered == cluster
-            masked = pred.cpu().numpy()[0] * mask
-            probs, counts = np.unique(pred, return_counts)
+            masked = truncated * mask
+            probs, counts = np.unique(truncated, return_counts=True)
             mv_index = np.argmax(counts)
             mv = probs[mv_index]
-            pred[clustered == cluster] = mv
-            print(mv)
-            print(pred)
-            hi
-        # output = pred.cpu().numpy()
-        # print(output.max())
-        # print(output.min())
-        # output = Image.fromarray(output)
-        # output.save('/content/EMANet/outputs/' + name + '.jpg')
-        out = np.array(pred.cpu(), dtype=np.uint8)
-        maximum = out.max()
-        extended = (out / maximum * 255).astype('uint8')
-        extended = np.squeeze(extended, axis=0)
-        # seg_pred = np.asarray(np.argmax(out, axis=0), dtype=np.uint8)
-        output_im = Image.fromarray(extended)
-        output_im.save('/content/EMANet/outputs/'+ name[0] +'.png')
-        print(np.array(output_im).min())
-        hi
+            truncated[clustered == cluster] = mv
+        top = pred[0, :3, :]
+        down = pred[0, -3:, :]
+        truncated = torch.tensor(truncated).cuda()
+        pp = torch.cat((top, truncated, down), axis = 0)
+        
+        self.hist += fast_hist(label, pred)
+        
+
 
 def main(ckp_name='latest.pth'):
     sess = Session(dt_split='val')
     sess.load_checkpoints(ckp_name)
     dt_iter = sess.dataloader
     sess.net.eval()
-    import pickle
     
     bpds = pickle.load(open("/content/drive/MyDrive/nyu/bpds.pkl", "rb"))
 
     for i, [image, label, name] in enumerate(dt_iter):
         bpd = bpds[name[0]]
         sess.inf_batch(image, label, bpd)
+        score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+            score_dict['mIou'] += score_dict['mIou']
+            score_dict['fIoU'] += score_dict['fIoU']
+            score_dict['pAcc'] += score_dict['pAcc']
+            score_dict['mAcc'] += score_dict['mAcc']
             for k, v in scores.items():
                 logger.info('%s-%f' % (k, v))
+
+    print(score_dict)
+
+    with open('/content/EMANet/super_result.txt', 'w') as f:
+        f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
     for k, v in scores.items():
