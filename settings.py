@@ -12,7 +12,7 @@ CROP_SIZE = 513
 IGNORE_LABEL = 255
 
 # Model definition
-N_CLASSES = 40
+N_CLASSES = 41
 N_LAYERS = 101
 STRIDE = 8
 BN_MOM = 3e-4
@@ -22,7 +22,7 @@ STAGE_NUM = 3
 # Training settings
 BATCH_SIZE = 4
 ITER_MAX = 30000
-ITER_SAVE = 2000
+ITER_SAVE = 1000
 
 LR_DECAY = 10
 LR = 9e-3
