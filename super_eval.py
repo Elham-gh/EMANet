@@ -44,7 +44,7 @@ class Session:
 
         self.net.module.load_state_dict(obj['net'])
 
-    def inf_batch(self, image, label, name, bpd):
+    def inf_batch(self, image, label, clustered):
         image = image.cuda()
         label = label.cuda()
         with torch.no_grad():
@@ -80,9 +80,7 @@ def main(ckp_name='latest.pth'):
 
     for i, [image, label, name] in enumerate(dt_iter):
         bpd = bpds[name[0]]
-        print(bpd)
-        hi
-        sess.inf_batch(image, label, name, bpds)
+        sess.inf_batch(image, label, bpd)
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
