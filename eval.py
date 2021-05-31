@@ -2,6 +2,8 @@ import os
 import os.path as osp
 
 import numpy as np
+import pickle
+import json
 
 import torch
 import torch.nn as nn
@@ -44,7 +46,7 @@ class Session:
 
         self.net.module.load_state_dict(obj['net'])
 
-    def inf_batch(self, image, label, name):
+    def inf_batch(self, image, label):
         image = image.cuda()
         label = label.cuda()
         with torch.no_grad():
@@ -52,34 +54,32 @@ class Session:
 
         pred = logit.max(dim=1)[1]
         self.hist += fast_hist(label, pred)
-        # output = pred.cpu().numpy()
-        # print(output.max())
-        # print(output.min())
-        # output = Image.fromarray(output)
-        # output.save('/content/EMANet/outputs/' + name + '.jpg')
-        out = np.array(pred.cpu(), dtype=np.uint8)
-        maximum = out.max()
-        extended = (out / maximum * 255).astype('uint8')
-        extended = np.squeeze(extended, axis=0)
-        # seg_pred = np.asarray(np.argmax(out, axis=0), dtype=np.uint8)
-        output_im = Image.fromarray(extended)
-        output_im.save('/content/EMANet/outputs/'+ name[0] +'.png')
-        print(np.array(output_im).min())
-        hi
+        
 
-def main(ckp_name='latest.pth'):
+def main(ckp_name='models/final.pth'):
     sess = Session(dt_split='val')
     sess.load_checkpoints(ckp_name)
     dt_iter = sess.dataloader
     sess.net.eval()
+    
+    score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
 
-    for i, [image, label, name] in enumerate(dt_iter):
-        sess.inf_batch(image, label, name)
+    for i, [image, label, _] in enumerate(dt_iter):
+        sess.inf_batch(image, label)
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+            score_dict['mIou'] += score_dict['mIou']
+            score_dict['fIoU'] += score_dict['fIoU']
+            score_dict['pAcc'] += score_dict['pAcc']
+            score_dict['mAcc'] += score_dict['mAcc']
             for k, v in scores.items():
                 logger.info('%s-%f' % (k, v))
+
+    print(score_dict)
+
+    with open('/content/EMANet/result.txt', 'w') as f:
+        f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
     for k, v in scores.items():
