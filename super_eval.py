@@ -52,8 +52,17 @@ class Session:
 
         pred = logit.max(dim=1)[1]
         self.hist += fast_hist(label, pred)
-        print(pred)
-        hi
+        clusters = np.unique(clustered)
+        for cluster in clusters:
+            mask = clustered == cluster
+            masked = pred.cpu().numpy()[0] * mask
+            probs, counts = np.unique(pred, return_counts)
+            mv_index = np.argmax(counts)
+            mv = probs[mv_index]
+            pred[clustered == cluster] = mv
+            print(mv)
+            print(pred)
+            hi
         # output = pred.cpu().numpy()
         # print(output.max())
         # print(output.min())
