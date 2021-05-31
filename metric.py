@@ -1,58 +1,110 @@
+import os
+import os.path as osp
+
 import numpy as np
+import pickle
+
 import torch
+import torch.nn as nn
+from torch.nn import functional as F
+from torch.nn import DataParallel
+from torch.utils.data import DataLoader
+
+from dataset import ValDataset 
+from metric import fast_hist, cal_scores
+from network import EMANet 
 import settings
+from PIL import Image
+
+logger = settings.logger
 
 
-def fast_hist(label_true, label_pred):
-    n_class = settings.N_CLASSES
-    mask = (label_true >= 0) & (label_true < n_class)
-    hist = torch.bincount(
-        n_class * label_true[mask].int() + label_pred[mask].int(),
-        minlength=n_class ** 2,
-    ).reshape(n_class, n_class)
-    return hist
+class Session:
+    def __init__(self, dt_split):
+        torch.cuda.set_device(settings.DEVICE)
+
+        self.log_dir = settings.LOG_DIR
+        self.model_dir = settings.MODEL_DIR
+
+        self.net = EMANet(settings.N_CLASSES, settings.N_LAYERS).cuda()
+        self.net = DataParallel(self.net, device_ids=[settings.DEVICE])
+        dataset = ValDataset(split=dt_split)
+        self.dataloader = DataLoader(dataset, batch_size=1, shuffle=False, 
+                                     num_workers=2, drop_last=False)
+        self.hist = 0
+
+    def load_checkpoints(self, name):
+        ckp_path = osp.join(self.model_dir, name)
+        try:
+            obj = torch.load(ckp_path, 
+                             map_location=lambda storage, loc: storage.cuda())
+            logger.info('Load checkpoint %s.' % ckp_path)
+        except FileNotFoundError:
+            logger.info('No checkpoint %s!' % ckp_path)
+            return
+
+        self.net.module.load_state_dict(obj['net'])
+
+    def inf_batch(self, image, label, clustered):
+        image = image.cuda()
+        label = label.cuda()
+        with torch.no_grad():
+            logit = self.net(image)
+
+        pred = logit.max(dim=1)[1]
+
+        clusters = np.unique(clustered)
+        truncated = pred[0, 3:-3, :].cpu().numpy()
+        for cluster in clusters:
+            mask = clustered == cluster
+            masked = truncated * mask
+            probs, counts = np.unique(truncated, return_counts=True)
+            mv_index = np.argmax(counts)
+            mv = probs[mv_index]
+            truncated[clustered == cluster] = mv
+        top = pred[0, :3, :]
+        down = pred[0, -3:, :]
+        truncated = torch.tensor(truncated).cuda()
+        pp = torch.cat((top, truncated, down), axis = 0)
+        
+        self.hist += fast_hist(label, pred)
+        
 
 
-label_names = [
-    'background',
-    'aeroplane',
-    'bicycle',
-    'bird',
-    'boat',
-    'bottle',
-    'bus',
-    'car',
-    'cat',
-    'chair',
-    'cow',
-    'diningtable',
-    'dog',
-    'horse',
-    'motorbike',
-    'person',
-    'pottedplant',
-    'sheep',
-    'sofa',
-    'train',
-    'tvmonitor',
-]
+def main(ckp_name='latest.pth'):
+    sess = Session(dt_split='val')
+    sess.load_checkpoints(ckp_name)
+    dt_iter = sess.dataloader
+    sess.net.eval()
+    
+    bpds = pickle.load(open("/content/drive/MyDrive/nyu/bpds.pkl", "rb"))
+
+    for i, [image, label, name] in enumerate(dt_iter):
+        bpd = bpds[name[0]]
+        sess.inf_batch(image, label, bpd)
+        score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
+        if i % 10 == 0:
+            logger.info('num-%d' % i)
+            scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+            score_dict['mIou'] += score_dict['mIou']
+            score_dict['fIoU'] += score_dict['fIoU']
+            score_dict['pAcc'] += score_dict['pAcc']
+            score_dict['mAcc'] += score_dict['mAcc']
+            for k, v in scores.items():
+                logger.info('%s-%f' % (k, v))
+
+    print(score_dict)
+
+    with open('/content/EMANet/super_result.txt', 'w') as f:
+        f.write(json.dumps(score_dict))
+
+    scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
+    for k, v in scores.items():
+        logger.info('%s-%f' % (k, v))
+    logger.info('')
+    for k, v in cls_iu.items():
+        logger.info('%s-%f' % (k, v))
 
 
-def cal_scores(hist):
-    n_class = settings.N_CLASSES
-    acc = np.diag(hist).sum() / hist.sum()
-    acc_cls = np.diag(hist) / hist.sum(axis=1)
-    acc_cls = np.nanmean(acc_cls)
-    iu = np.diag(hist) / (hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))
-    mean_iu = np.nanmean(iu)
-    freq = hist.sum(axis=1) / hist.sum()
-    fwavacc = (freq[freq > 0] * iu[freq > 0]).sum()
-    cls_iu = dict(zip(label_names, iu))
-
-    return {
-        'pAcc': acc,
-        'mAcc': acc_cls,
-        'fIoU': fwavacc,
-        'mIoU': mean_iu,
-    }, cls_iu
-
+if __name__ == '__main__':
+    main()
