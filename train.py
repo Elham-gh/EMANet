@@ -118,17 +118,16 @@ class Session:
 
     def load_checkpoints(self, name): ###*
         ckp_path = osp.join(self.model_dir, name)
+        
         try:
             obj = torch.load(ckp_path, 
                              map_location=lambda storage, loc: storage.cuda())
             logger.info('Load checkpoint %s' % ckp_path)
+            
         except FileNotFoundError:
             obj = torch.load(self.backbone_dir, 
                              map_location=lambda storage, loc: storage.cuda())
             logger.info('Load checkpoint %s' % ckp_path)
-            # print(self.backbone_dir)
-            # hi
-            # logger.error('No checkpoint %s!' % ckp_path)
             return
 
         self.net.module.load_state_dict(obj['net'])
