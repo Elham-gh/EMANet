@@ -10,6 +10,7 @@ from torch.nn.modules.batchnorm import _BatchNorm
 from torch.optim import SGD
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
+import shutil
 
 from bn_lib.nn.modules import patch_replication_callback
 from dataset import TrainDataset
@@ -58,6 +59,7 @@ class Session:
 
         self.log_dir = settings.LOG_DIR
         self.model_dir = settings.MODEL_DIR
+        self.backbone_dir = settings.BACKBONE_DIR
         ensure_dir(self.log_dir)
         ensure_dir(self.model_dir)
         logger.info('set log dir as %s' % self.log_dir)
@@ -104,26 +106,35 @@ class Session:
             for k, v in out.items()]
         logger.info(' '.join(outputs))
 
-    def save_checkpoints(self, name):
+    def save_checkpoints(self, name):###*
         ckp_path = osp.join(self.model_dir, name)
         obj = {
             'net': self.net.module.state_dict(),
             'step': self.step,
+            'opt': self.opt.state_dict()
         }
         torch.save(obj, ckp_path)
 
-    def load_checkpoints(self, name):
+
+    def load_checkpoints(self, name): ###*
         ckp_path = osp.join(self.model_dir, name)
         try:
             obj = torch.load(ckp_path, 
                              map_location=lambda storage, loc: storage.cuda())
             logger.info('Load checkpoint %s' % ckp_path)
         except FileNotFoundError:
-            logger.error('No checkpoint %s!' % ckp_path)
+            obj = torch.load(self.backbone_dir, 
+                             map_location=lambda storage, loc: storage.cuda())
+            logger.info('Load checkpoint %s' % ckp_path)
+            # print(self.backbone_dir)
+            # hi
+            # logger.error('No checkpoint %s!' % ckp_path)
             return
 
         self.net.module.load_state_dict(obj['net'])
         self.step = obj['step']
+        self.opt.load_state_dict(obj['opt'])
+        
 
     def train_batch(self, image, label):
         loss, mu = self.net(image, label)
@@ -149,6 +160,8 @@ def main(ckp_name='latest.pth'):
     dt_iter = iter(sess.dataloader)
     sess.net.train()
 
+
+
     while sess.step <= settings.ITER_MAX:
         poly_lr_scheduler(
             opt=sess.opt,
@@ -168,13 +181,12 @@ def main(ckp_name='latest.pth'):
         out = {'loss': loss}
         sess.write(out)
         
-
         if sess.step % settings.ITER_SAVE == 0:
             sess.save_checkpoints('step_%d.pth' % sess.step)
-            sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/EMA_NYU_%d.pth' % sess.step)
+
         if sess.step % (settings.ITER_SAVE // 10) == 0:
             sess.save_checkpoints('latest.pth')
-            # sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/latest.pth')
+
         sess.step += 1
 
     sess.save_checkpoints('/content/drive/MyDrive/SuperBPD/EMA_ckpt/final.pth')
