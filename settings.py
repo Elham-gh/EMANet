@@ -34,7 +34,8 @@ DEVICE = 0
 DEVICES = [0] #list(range(0, 4))
 
 LOG_DIR = './logdir' 
-MODEL_DIR = './models'
+MODEL_DIR = '/content/drive/MyDrive/SuperBPD/EMANet/nyu_ckpt/'
+BACKBONE_DIR = './models/resnet50-ebb6acbb.pth'
 NUM_WORKERS = 16
 
 logger = logging.getLogger('train')
