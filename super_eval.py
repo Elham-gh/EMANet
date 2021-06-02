@@ -77,7 +77,7 @@ def main(ckp_name='latest.pth'):
     dt_iter = sess.dataloader
     sess.net.eval()
     
-    bpds = pickle.load(open("/content/drive/MyDrive/nyu/bpds.pkl", "rb"))
+    bpds = pickle.load(open("/content/drive/MyDrive/datasets/nyu/bpds.pkl", "rb"))
 
     for i, [image, label, name] in enumerate(dt_iter):
         bpd = bpds[name[0]]
