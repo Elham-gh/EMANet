@@ -3,6 +3,7 @@ import os.path as osp
 
 import numpy as np
 import pickle
+import json
 
 import torch
 import torch.nn as nn
@@ -66,8 +67,9 @@ class Session:
         down = pred[0, -3:, :]
         truncated = torch.tensor(truncated).cuda()
         pp = torch.cat((top, truncated, down), axis = 0)
-        
-        self.hist += fast_hist(label, pred)
+        # print(pp[None, :, :].size())
+        # hi
+        self.hist += fast_hist(label, pp[None, :, :])
         
 
 
