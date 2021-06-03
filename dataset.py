@@ -52,11 +52,11 @@ def pad(image, label=None):
     return image, label
 
 
-def pad_inf(image, label=None):
+def pad_inf(image, label=None): 
     h, w = image.size()[-2:] 
     stride = settings.STRIDE
-    pad_h = (stride + 1 - h % stride) % stride
-    pad_w = (stride + 1 - w % stride) % stride
+    pad_h = (stride + 1 - h % stride) % stride ###* = 6
+    pad_w = (stride + 1 - w % stride) % stride ###* = 0
     if pad_h > 0 or pad_w > 0:
         image = F.pad(image, (0, pad_w, 0, pad_h), mode='constant', value=0.)
         if label is not None:
