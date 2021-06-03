@@ -81,7 +81,7 @@ def main(ckp_name='latest.pth'):
 
     print(score_dict)
 
-    with open('/content/EMANet/super_result.txt', 'w') as f:
+    with open('/content/EMANet/nyu_result.txt', 'w') as f:
         f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
