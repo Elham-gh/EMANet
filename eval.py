@@ -46,7 +46,7 @@ class Session:
 
         self.net.module.load_state_dict(obj['net'])
 
-    def inf_batch(self, image, label):
+    def inf_batch(self, image, label, clustered):
         image = image.cuda()
         label = label.cuda()
         with torch.no_grad():
@@ -56,16 +56,19 @@ class Session:
         self.hist += fast_hist(label, pred)
         
 
-def main(ckp_name='models/final.pth'):
+
+def main(ckp_name='latest.pth'):
     sess = Session(dt_split='val')
     sess.load_checkpoints(ckp_name)
     dt_iter = sess.dataloader
     sess.net.eval()
     
-    score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
+    bpds = pickle.load(open("/content/drive/MyDrive/datasets/nyu/bpds.pkl", "rb"))
 
-    for i, [image, label, _] in enumerate(dt_iter):
-        sess.inf_batch(image, label)
+    for i, [image, label, name] in enumerate(dt_iter):
+        bpd = bpds[name[0]]
+        sess.inf_batch(image, label, bpd)
+        score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
@@ -78,7 +81,7 @@ def main(ckp_name='models/final.pth'):
 
     print(score_dict)
 
-    with open('/content/EMANet/result.txt', 'w') as f:
+    with open('/content/EMANet/super_result.txt', 'w') as f:
         f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
