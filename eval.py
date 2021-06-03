@@ -46,7 +46,7 @@ class Session:
 
         self.net.module.load_state_dict(obj['net'])
 
-    def inf_batch(self, image, label, clustered):
+    def inf_batch(self, image, label):
         image = image.cuda()
         label = label.cuda()
         with torch.no_grad():
@@ -64,25 +64,16 @@ def main(ckp_name='latest.pth'):
     sess.net.eval()
     
     bpds = pickle.load(open("/content/drive/MyDrive/datasets/nyu/bpds.pkl", "rb"))
+    score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
 
     for i, [image, label, name] in enumerate(dt_iter):
-        bpd = bpds[name[0]]
-        sess.inf_batch(image, label, bpd)
-        score_dict = {'mIou': 0, 'fIoU': 0, 'pAcc': 0, 'mAcc': 0}
+        # bpd = bpds[name[0]]
+        sess.inf_batch(image, label)#, bpd)
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
-            score_dict['mIou'] += score_dict['mIou']
-            score_dict['fIoU'] += score_dict['fIoU']
-            score_dict['pAcc'] += score_dict['pAcc']
-            score_dict['mAcc'] += score_dict['mAcc']
             for k, v in scores.items():
                 logger.info('%s-%f' % (k, v))
-
-    print(score_dict)
-
-    with open('/content/EMANet/nyu_result.txt', 'w') as f:
-        f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
     for k, v in scores.items():
@@ -91,6 +82,8 @@ def main(ckp_name='latest.pth'):
     for k, v in cls_iu.items():
         logger.info('%s-%f' % (k, v))
 
+    with open('/content/EMANet/nyu_result.txt', 'w') as f:
+        f.write(json.dumps(scores, '\n', cls_iu))
 
 if __name__ == '__main__':
     main()
