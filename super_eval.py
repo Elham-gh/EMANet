@@ -55,18 +55,32 @@ class Session:
         pred = logit.max(dim=1)[1]
 
         clusters = np.unique(clustered)
-        truncated = pred[0, 3:-3, :].cpu().numpy()
+        truncated = pred[0, 6:, :].cpu().numpy()
+        truncated[np.where(truncated == 255)] = -1
+        # print(np.where(truncated == -1)[0].shape)
+
         for cluster in clusters:
+
             mask = clustered == cluster
-            masked = truncated * mask
-            probs, counts = np.unique(truncated, return_counts=True)
-            mv_index = np.argmax(counts)
-            mv = probs[mv_index]
-            truncated[clustered == cluster] = mv
-        top = pred[0, :3, :]
-        down = pred[0, -3:, :]
+            masked = truncated[mask]
+            lbls, counts = np.unique(truncated, return_counts=True)
+            sorted_counts = np.argsort(counts)
+            mv = lbls[sorted_counts[0]] if lbls[sorted_counts[0]] != -1 else lbls[sorted_counts[1]]
+            # print(lbls[sorted_counts[0]], mv)
+            truncated[mask != 0] = mv
+
+        # hi
+        # print(np.where(truncated == -1))
+        truncated[np.where(truncated == -1)] = 255
+        # print(np.where(truncated == 0)[0].shape)
+        # hi
+        top = pred[0, :6, :]
+        # down = pred[0, -3:, :]
         truncated = torch.tensor(truncated).cuda()
-        pp = torch.cat((top, truncated, down), axis = 0)
+        
+        pp = torch.cat((top, truncated), axis = 0)
+        # print(truncated[:15, :15])
+        # print(pred[:15, :15])
         # print(pp[None, :, :].size())
         # hi
         self.hist += fast_hist(label, pp[None, :, :])
