@@ -48,25 +48,28 @@ class Session:
 
     def inf_batch(self, image, label, clustered):
         image = image.cuda()
-        label = label.cuda()
+        label = label.cuda()#[:, :-6]
+        
         with torch.no_grad():
             logit = self.net(image)
 
         pred = logit.max(dim=1)[1]
-        clusters = np.unique(clustered)###* b
-        g = pred
+
+        clusters = np.unique(clustered)###* b, different clusters
+        g = pred[0].cpu().numpy() #* copy of prediction
         
-        # clustered = F.pad(torch.tensor(clustered), (0, 0, 0, 6), mode='circular')
-        print(clustered.size())
-        g[pred == 0] = 255
-        hi
-        print(np.where(gt == 0)[0].shape)
+        clustered = np.pad(clustered, ((0, 6), (0, 0)), mode='edge') ###* pad bpd
+        
+        g[g == 0] = 255 ###* change ignore label for mask
+        
         for cluster in clusters:
-            mask = cluster == clustered
-            masked = g * mask
-            l, c = np.unique(masked, return_counts=True)
-            cs = np.argsort(c)[::-1]
-            # print(l, cs, c)
+            mask = cluster == clustered ###* mask definition
+            masked = g * mask ###* masking prediction
+            
+            # print(masked)#.shape)
+            l, c = np.unique(masked, return_counts=True) #* nonzero cluster indices
+            cs = np.argsort(c)[::-1] #* finding majority vote
+            
             ind = 0
             if l[cs[ind]] == 255 and l[cs[ind]] == 0:
               ind += 2
@@ -75,12 +78,22 @@ class Session:
             mv = l[cs[ind]]
             # if mv == 0:
             #   print(l, c, cs, mv)
-            g[mask] = mv
+            # print(mv * mask.shape)
+            g[mask] = mv #* mask
+            # print(np.unique(bpd))
+            # print(np.unique(label[0].cpu().numpy()[mask]), mv)
+            # print(np.unique(pred[0].cpu().numpy()[mask], return_counts=True), mv)
+
+            # print(l, cs, c, mv)
+            # hi
 
         g[g == 255] = 0
-        print(np.where(g == 0)[0].shape)
-        hi
-        self.hist += fast_hist(label, g[None, :, :])
+        # print(g.shape)
+        # hi
+        g = torch.tensor(g[None, :, :]).cuda()
+        # print(g.shape)
+        # hi
+        self.hist += fast_hist(label, g)
         
 
 
@@ -99,17 +112,10 @@ def main(ckp_name='latest.pth'):
         if i % 10 == 0:
             logger.info('num-%d' % i)
             scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
-            score_dict['mIou'] += score_dict['mIou']
-            score_dict['fIoU'] += score_dict['fIoU']
-            score_dict['pAcc'] += score_dict['pAcc']
-            score_dict['mAcc'] += score_dict['mAcc']
             for k, v in scores.items():
                 logger.info('%s-%f' % (k, v))
 
-    print(score_dict)
 
-    with open('/content/EMANet/super_result.txt', 'w') as f:
-        f.write(json.dumps(score_dict))
 
     scores, cls_iu = cal_scores(sess.hist.cpu().numpy())
     for k, v in scores.items():
@@ -118,6 +124,8 @@ def main(ckp_name='latest.pth'):
     for k, v in cls_iu.items():
         logger.info('%s-%f' % (k, v))
 
+    with open('/content/EMANet/super_result.txt', 'w') as f:
+        f.write(scores, '\n', cls_iu)
 
 if __name__ == '__main__':
     main()
